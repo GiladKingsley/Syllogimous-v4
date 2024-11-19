@@ -1,6 +1,10 @@
+// src/app/modules/syllogimous/components/body/in-game/in-game.component.ts
+
 import { Component, OnDestroy, OnInit } from "@angular/core";
 import { SyllogimousService } from "../../../services/syllogimous.service";
 import { StatsService } from "../../../services/stats.service";
+import { GameModeService } from "../../../services/game-mode.service";
+import { EnumGameMode } from "../../../models/game-modes.models";
 
 @Component({
     selector: "app-body-in-game",
@@ -11,43 +15,38 @@ export class BodyInGameComponent implements OnInit, OnDestroy {
     timerFull = 0;
     timerLeft = 0;
     timer: any;
+    showTimer = false;
 
     constructor(
         public sylSrv: SyllogimousService,
         private statsService: StatsService,
+        private gameModeService: GameModeService
     ) { }
 
     ngOnInit() {
-        const upperBound = 90;
-        const lowerBound = 10;
-        const bufferTime = 5;
-        this.timerFull = upperBound;
-
-        this.statsService.calcStats();
-        const questionType = this.sylSrv.question.type;
-        const questionPremises = this.sylSrv.question.premises.length;
-        const typeBasedStats = this.statsService.typeBasedStats[questionType];
-        if (typeBasedStats?.stats) {
-            const prevStats = typeBasedStats.stats[questionPremises - 1];
-            const currStats = typeBasedStats.stats[questionPremises];
-            let avg = 0;
-            if (currStats && currStats.count > 4) {
-                avg = currStats.sum / (1000 * currStats.count);
-            } else if (prevStats && prevStats.count > 4) {
-                avg = prevStats.sum / (1000 * prevStats.count) + (4 * bufferTime);
-            }
-            this.timerFull = Math.max(lowerBound, Math.min(avg, upperBound)) + bufferTime;
-            console.warn("timerFull", this.timerFull);
-        }
+        const currentMode = this.gameModeService.getState().activeMode;
         
-        this.timerLeft = this.timerFull;
-        this.timer = setInterval(() => {
-            this.timerLeft -= 1;
-            if (this.timerLeft < 0) {
-                this.sylSrv.checkQuestion();
-            }
-        }, 1000);
-        console.log("start timer", this.timer, "with time", this.timerFull);
+        // Only handle timer for non-Relaxed modes
+        if (currentMode === EnumGameMode.Relaxed) {
+            return;
+        }
+
+        // Get time from game mode service
+        const time = this.gameModeService.getTimeForQuestion(this.sylSrv.question);
+        
+        if (time !== null) {
+            this.showTimer = true;
+            this.timerFull = time;
+            this.timerLeft = time;
+            
+            this.timer = setInterval(() => {
+                this.timerLeft -= 1;
+                if (this.timerLeft < 0) {
+                    this.sylSrv.checkQuestion();
+                }
+            }, 1000);
+            console.log("start timer", this.timer, "with time", this.timerFull);
+        }
     }
 
     ngOnDestroy() {

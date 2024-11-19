@@ -1,7 +1,11 @@
-import { Component } from '@angular/core';
+// src/app/modules/syllogimous/components/body/stats/time-based-stats/time-based-stats.component.ts
+
+import { Component, Input } from '@angular/core';
 import { Question } from 'src/app/modules/syllogimous/models/question.models';
 import { SyllogimousService } from 'src/app/modules/syllogimous/services/syllogimous.service';
 import { formatTime } from 'src/app/utils/date';
+import { EnumGameMode } from 'src/app/modules/syllogimous/models/game-modes.models';
+import { GameModeService } from 'src/app/modules/syllogimous/services/game-mode.service';
 
 @Component({
     selector: 'app-time-based-stats',
@@ -9,8 +13,9 @@ import { formatTime } from 'src/app/utils/date';
     styleUrls: ['./time-based-stats.component.css']
 })
 export class TimeBasedStatsComponent {
+    @Input() mode!: EnumGameMode;
+    
     formatTime = formatTime;
-
     questions: Question[] = [];
     totalPlayTime = 0;
     avgAnswer = 0;
@@ -19,11 +24,13 @@ export class TimeBasedStatsComponent {
     timeBasedStats: Record<string, any> = {};
 
     constructor(
-        private sylSrv: SyllogimousService
+        private sylSrv: SyllogimousService,
+        private gameModeService: GameModeService
     ) {}
 
     ngOnInit() {
-        this.questions = this.sylSrv.questionsFromLS;
+        const stats = this.gameModeService.getStats(this.mode);
+        this.questions = stats.history;
 
         for (const q of this.questions) {
             const ps = q.premises.length;

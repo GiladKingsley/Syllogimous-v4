@@ -1,6 +1,10 @@
-import { Component } from '@angular/core';
+// src/app/modules/syllogimous/components/body/stats/accuracy-stats/accuracy-stats.component.ts
+
+import { Component, Input } from '@angular/core';
 import { Question } from 'src/app/modules/syllogimous/models/question.models';
 import { SyllogimousService } from 'src/app/modules/syllogimous/services/syllogimous.service';
+import { EnumGameMode } from 'src/app/modules/syllogimous/models/game-modes.models';
+import { GameModeService } from 'src/app/modules/syllogimous/services/game-mode.service';
 
 @Component({
     selector: 'app-accuracy-stats',
@@ -8,6 +12,8 @@ import { SyllogimousService } from 'src/app/modules/syllogimous/services/syllogi
     styleUrls: ['./accuracy-stats.component.css']
 })
 export class AccuracyStatsComponent {
+    @Input() mode!: EnumGameMode;
+
     questions: Question[] = [];
     correctQs: Question[] = [];
     incorrectQs: Question[] = [];
@@ -16,11 +22,13 @@ export class AccuracyStatsComponent {
     longestStreak: Question[] = [];
 
     constructor(
-        public sylSrv: SyllogimousService
+        private sylSrv: SyllogimousService,
+        private gameModeService: GameModeService
     ) {}
 
     ngOnInit() {
-        this.questions = this.sylSrv.questionsFromLS;
+        const stats = this.gameModeService.getStats(this.mode);
+        this.questions = stats.history;
 
         this.correctQs = this.questions.filter(q => q.userAnswer !== undefined && q.isValid === q.userAnswer);
         this.incorrectQs = this.questions.filter(q => q.userAnswer !== undefined && q.isValid !== q.userAnswer);

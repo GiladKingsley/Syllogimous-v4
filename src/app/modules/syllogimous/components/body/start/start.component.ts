@@ -1,8 +1,12 @@
+// src/app/modules/syllogimous/components/body/start/start.component.ts
+
 import { Component } from "@angular/core";
 import { SyllogimousService } from "../../../services/syllogimous.service";
 import { TIER_SCORE_RANGES } from "../../../constants/syllogimous.constants";
 import { EnumScreens, EnumTiers } from "../../../models/syllogimous.models";
 import { Question } from "../../../models/question.models";
+import { EnumGameMode } from "../../../models/game-modes.models";
+import { GameModeService } from "../../../services/game-mode.service";
 
 @Component({
     selector: "app-body-start",
@@ -11,6 +15,7 @@ import { Question } from "../../../models/question.models";
 })
 export class BodyStartComponent {
     EnumScreens = EnumScreens;
+    EnumGameMode = EnumGameMode;
 
     TIER_SCORE_RANGES = TIER_SCORE_RANGES;
     tiers = Object.values(EnumTiers);
@@ -24,9 +29,15 @@ export class BodyStartComponent {
     currentStreak: Question[] = [];
     longestStreak: Question[] = [];
 
+    selectedMode: EnumGameMode;
+
     constructor(
-        public sylSrv: SyllogimousService
-    ) {}
+        public sylSrv: SyllogimousService,
+        private gameModeService: GameModeService
+    ) {
+        const state = this.gameModeService.getState();
+        this.selectedMode = state.activeMode;
+    }
 
     ngOnInit() {
         const currTierIdx = this.tiers.findIndex(tier => tier === this.sylSrv.tier);
@@ -57,5 +68,9 @@ export class BodyStartComponent {
             }
             streak.push(q);
         }
+    }
+
+    onModeChange() {
+        this.gameModeService.setActiveMode(this.selectedMode);
     }
 }

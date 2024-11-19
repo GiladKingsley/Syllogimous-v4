@@ -1,6 +1,35 @@
 <div style="min-width: 320px;">
     <h2 class="text-center">Start Screen</h2>
     
+    <div class="form-group mb-4">
+        <label class="form-label">Game Mode</label>
+        <div class="btn-group w-100" role="group">
+            <input type="radio" class="btn-check" name="gameMode" id="relaxedMode" 
+                   [value]="EnumGameMode.Relaxed" [(ngModel)]="selectedMode"
+                   (change)="onModeChange()">
+            <label class="btn btn-outline-primary" for="relaxedMode">
+                Relaxed
+                <small class="d-block">Practice without pressure</small>
+            </label>
+
+            <input type="radio" class="btn-check" name="gameMode" id="normalMode" 
+                   [value]="EnumGameMode.Normal" [(ngModel)]="selectedMode"
+                   (change)="onModeChange()">
+            <label class="btn btn-outline-primary" for="normalMode">
+                Normal
+                <small class="d-block">Fixed time limits</small>
+            </label>
+
+            <input type="radio" class="btn-check" name="gameMode" id="adaptiveMode" 
+                   [value]="EnumGameMode.Adaptive" [(ngModel)]="selectedMode"
+                   (change)="onModeChange()">
+            <label class="btn btn-outline-primary" for="adaptiveMode">
+                Adaptive
+                <small class="d-block">Personalized progression</small>
+            </label>
+        </div>
+    </div>
+    
     <ul class="list-group mb-2">
         <li class="list-group-item flex-between">
             <b>Tier</b>

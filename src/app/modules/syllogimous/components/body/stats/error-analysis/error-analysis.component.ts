@@ -1,6 +1,10 @@
-import { Component } from '@angular/core';
+// src/app/modules/syllogimous/components/body/stats/error-analysis/error-analysis.component.ts
+
+import { Component, Input } from '@angular/core';
 import { Question } from 'src/app/modules/syllogimous/models/question.models';
 import { SyllogimousService } from 'src/app/modules/syllogimous/services/syllogimous.service';
+import { EnumGameMode } from 'src/app/modules/syllogimous/models/game-modes.models';
+import { GameModeService } from 'src/app/modules/syllogimous/services/game-mode.service';
 
 @Component({
     selector: 'app-error-analysis',
@@ -8,20 +12,24 @@ import { SyllogimousService } from 'src/app/modules/syllogimous/services/syllogi
     styleUrls: ['./error-analysis.component.css']
 })
 export class ErrorAnalysisComponent {
+    @Input() mode!: EnumGameMode;
+    
     questions: Question[] = [];
     mostCommonMistake = "No Mistakes Yet";
     leastCommonMistake = "No Mistakes Yet";
 
     constructor(
-        public sylSrv: SyllogimousService
+        private sylSrv: SyllogimousService,
+        private gameModeService: GameModeService
     ) {}
 
     ngOnInit() {
-        this.questions = this.sylSrv.questionsFromLS;
+        const stats = this.gameModeService.getStats(this.mode);
+        this.questions = stats.history;
 
         const typeMistakesCount: Record<string, number> = {};
         this.questions
-            .filter(q => q.isValid !== q.userAnswer)
+            .filter(q => q.userAnswer !== q.isValid)
             .forEach(q => {
                 typeMistakesCount[q.type] = typeMistakesCount[q.type] || 0;
                 typeMistakesCount[q.type]++;

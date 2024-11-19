@@ -1,5 +1,8 @@
+// src/app/modules/syllogimous/components/body/body.module.ts
+
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { SharedModule } from 'src/app/shared/shared.module';
 import { BodyIntroComponent } from './intro/intro.component';
 import { BodyStartComponent } from './start/start.component';
@@ -23,6 +26,9 @@ import { TutorialDirection4DComponent } from './tutorial/direction4D/direction4D
 import { TutorialAnalogyComponent } from './tutorial/analogy/analogy.component';
 import { TutorialBinaryComponent } from './tutorial/binary/binary.component';
 import { BodyTutorialsComponent } from './tutorials/tutorials.component';
+import { StatsModeToggleComponent } from './stats/stats-mode-toggle.component';
+import { TimerSettingsComponent } from '../timer-settings/timer-settings.component';
+import { TimeoutRateControlComponent } from '../timer-settings/timeout-rate-control.component';
 
 @NgModule({
   declarations: [
@@ -31,7 +37,6 @@ import { BodyTutorialsComponent } from './tutorials/tutorials.component';
     BodyInGameComponent,
     BodyFeedbackComponent,
     BodyHistoryComponent,
-
     BodyTutorialComponent,
     BodyTutorialsComponent,
     TutorialDistinctionComponent,
@@ -43,17 +48,20 @@ import { BodyTutorialsComponent } from './tutorials/tutorials.component';
     TutorialDirection4DComponent,
     TutorialAnalogyComponent,
     TutorialBinaryComponent,
-
     BodyStatsComponent,
     TierStatsComponent,
     AccuracyStatsComponent,
     ErrorAnalysisComponent,
     TimeBasedStatsComponent,
     TypeBasedStatsComponent,
+    StatsModeToggleComponent,
+    TimerSettingsComponent,
+    TimeoutRateControlComponent,
   ],
   imports: [
     CommonModule,
     SharedModule,
+    FormsModule
   ],
   exports: [
     BodyIntroComponent,

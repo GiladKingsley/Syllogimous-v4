@@ -1,6 +1,9 @@
 # Syllogimous v4
 
-Syllogimous v4 is now available! Try it now at: [Syllogimous v4](https://4skinskywalker.github.io/Syllogimous-v4/)
+Syllogimous v4 is now available! 
+This is a clone of the original that sometimes has some changes. Try it now at: [Syllogimous v4](https://GiladKingsley.github.io/Syllogimous-v4/)
+
+Original version by Fredo: [Syllogimous v4](https://4skinskywalker.github.io/Syllogimous-v4/)
 
 ## Attribution-NonCommercial 3.0 Unported (CC BY-NC 3.0)
 

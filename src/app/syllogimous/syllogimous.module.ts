@@ -39,6 +39,8 @@ import { GameModeChooseComponent } from './components/game-mode-choose/game-mode
 import { EnumQuestionType } from './constants/question.constants';
 import { EnumScreens } from './constants/syllogimous.constants';
 import { TiersMatrixComponent } from './pages/tiers-matrix/tiers-matrix.component';
+import { OtherGamesComponent } from './pages/other-games/other-games.component';
+import { TutorialNegationCueComponent } from './pages/tutorial/negation-cue/negation-cue.component';
 
 const routes: Routes = [
   {
@@ -72,7 +74,8 @@ const routes: Routes = [
       },
       { path: EnumScreens.Stats, component: StatsComponent },
       { path: EnumScreens.PlaygroundMode, component: PlaygroundModeComponent },
-      { path: EnumScreens.TiersMatrix, component: TiersMatrixComponent }
+      { path: EnumScreens.TiersMatrix, component: TiersMatrixComponent },
+      { path: EnumScreens.OtherGames, component: OtherGamesComponent },
     ]
   }
 ];
@@ -89,6 +92,7 @@ const routes: Routes = [
     FeedbackComponent,
     TutorialsComponent,
     TutorialComponent,
+    TutorialNegationCueComponent,
     TutorialDistinctionComponent,
     TutorialSyllogismComponent,
     TutorialComparisonNumericalComponent,
@@ -113,6 +117,7 @@ const routes: Routes = [
     DailyProgressComponent,
     GameModeChooseComponent,
     TiersMatrixComponent,
+    OtherGamesComponent,
   ],
   imports: [
     CommonModule,

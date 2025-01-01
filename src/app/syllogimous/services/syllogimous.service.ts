@@ -186,8 +186,15 @@ export class SyllogimousService {
             const currTier = this.tier;
         
             let ds = 0;
-            // Only change score if there was an actual answer (not a timeout)
-            if (value !== undefined) {
+            if (value === undefined) {
+                // Get timeout penalty based on tier's decrement value
+                const tierDecrement = TIER_SCORE_ADJUSTMENTS[this.tier].decrement;
+                const timeoutPenalty = (tierDecrement >= 10 || tierDecrement === 8) ? 3 : 2;
+                this.score = Math.max(0, this.score - timeoutPenalty);
+                if (this.score !== 0) {
+                    ds -= 1;
+                }
+            } else {
                 if (this.question.userAnswer === this.question.isValid) {
                     this.score += TIER_SCORE_ADJUSTMENTS[this.tier].increment;
                     ds += 1;

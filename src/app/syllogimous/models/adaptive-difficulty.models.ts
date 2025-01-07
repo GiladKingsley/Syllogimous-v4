@@ -13,8 +13,8 @@ export interface IDifficultyLevel {
 
 export class AdaptiveDifficulty {
     private static readonly HISTORY_SIZE = 10;
-    private static readonly LEVEL_UP_THRESHOLD = 0.9;    // 90% correct
-    private static readonly LEVEL_DOWN_THRESHOLD = 0.7;  // 70% correct
+    private static readonly REQUIRED_CORRECT_FOR_LEVEL_UP = 9;    // Need 9 correct out of 10
+    private static readonly MAX_INCORRECT_BEFORE_LEVEL_DOWN = 4;  // 4 incorrect answers triggers level down
     private static readonly MIN_DIFFICULTY = 2;
     private static readonly MAX_DIFFICULTY = 20;
 
@@ -92,18 +92,25 @@ export class AdaptiveDifficulty {
         const level = this.difficultyLevels[type];
         const correctCount = level.lastAttempts.filter(a => a.isCorrect).length;
         const incorrectCount = level.lastAttempts.length - correctCount;
-        const accuracy = correctCount / level.lastAttempts.length;
+        
+        // Check for consecutive correct answers for immediate level up
+        const lastNine = level.lastAttempts.slice(-9);
+        const nineConsecutiveCorrect = lastNine.length === 9 && lastNine.every(a => a.isCorrect);
 
-        // Level up if accuracy is above threshold
-        if (accuracy >= AdaptiveDifficulty.LEVEL_UP_THRESHOLD) {
+        // Level up conditions: either 9 consecutive correct or 9 out of 10 total correct
+        if (nineConsecutiveCorrect || 
+            (level.lastAttempts.length >= AdaptiveDifficulty.HISTORY_SIZE && 
+             correctCount >= AdaptiveDifficulty.REQUIRED_CORRECT_FOR_LEVEL_UP)) {
             if (level.currentDifficulty < AdaptiveDifficulty.MAX_DIFFICULTY) {
+                console.log(`Leveling UP ${type} from ${level.currentDifficulty} to ${level.currentDifficulty + 1} - ${nineConsecutiveCorrect ? 'got 9 consecutive correct!' : `got ${correctCount} correct out of ${level.lastAttempts.length}`}`);
                 level.currentDifficulty++;
                 level.lastAttempts = []; // Reset history after difficulty change
             }
         }
-        // Level down if accuracy is below threshold or too many incorrect answers
-        else if (accuracy <= AdaptiveDifficulty.LEVEL_DOWN_THRESHOLD || incorrectCount >= 4) {
+        // Level down if too many incorrect answers
+        else if (incorrectCount >= AdaptiveDifficulty.MAX_INCORRECT_BEFORE_LEVEL_DOWN) {
             if (level.currentDifficulty > AdaptiveDifficulty.MIN_DIFFICULTY) {
+                console.log(`Leveling DOWN ${type} from ${level.currentDifficulty} to ${level.currentDifficulty - 1} - got ${incorrectCount} incorrect answers`);
                 level.currentDifficulty--;
                 level.lastAttempts = []; // Reset history after difficulty change
             }

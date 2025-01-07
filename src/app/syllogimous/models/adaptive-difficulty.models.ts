@@ -2,6 +2,7 @@ import { EnumQuestionType } from "../constants/question.constants";
 
 export interface IQuestionAttempt {
     isCorrect: boolean;
+    isTimeout: boolean;  // New field to track timeouts
     timestamp: number;
     difficulty: number;
 }
@@ -13,10 +14,11 @@ export interface IDifficultyLevel {
 
 export class AdaptiveDifficulty {
     private static readonly HISTORY_SIZE = 10;
-    private static readonly REQUIRED_CORRECT_FOR_LEVEL_UP = 9;    // Need 9 correct out of 10
-    private static readonly MAX_INCORRECT_BEFORE_LEVEL_DOWN = 4;  // 4 incorrect answers triggers level down
+    private static readonly REQUIRED_CORRECT_FOR_LEVEL_UP = 9;
+    private static readonly MAX_INCORRECT_BEFORE_LEVEL_DOWN = 4;
     private static readonly MIN_DIFFICULTY = 2;
     private static readonly MAX_DIFFICULTY = 20;
+    private static readonly TIMEOUT_WEIGHT = 0.5;  // Each timeout counts as half correct/incorrect
 
     // Track difficulty and history per question type
     private difficultyLevels: Record<EnumQuestionType, IDifficultyLevel> = {} as any;
@@ -34,17 +36,18 @@ export class AdaptiveDifficulty {
     /**
      * Record a question attempt and adjust difficulty if needed
      */
-    public recordAttempt(type: EnumQuestionType, isCorrect: boolean): void {
+    public recordAttempt(type: EnumQuestionType, isCorrect: boolean, isTimeout: boolean = false): void {
         const level = this.difficultyLevels[type];
         console.log('Before recording:', type, {
             currentDifficulty: level.currentDifficulty,
             attempts: level.lastAttempts.length,
-            correctCount: level.lastAttempts.filter(a => a.isCorrect).length
+            correctCount: this.getEffectiveCorrectCount(level.lastAttempts)
         });
         
         // Add new attempt
         level.lastAttempts.push({
             isCorrect,
+            isTimeout,
             timestamp: Date.now(),
             difficulty: level.currentDifficulty
         });
@@ -63,10 +66,34 @@ export class AdaptiveDifficulty {
         console.log('After recording:', type, {
             currentDifficulty: level.currentDifficulty,
             attempts: level.lastAttempts.length,
-            correctCount: level.lastAttempts.filter(a => a.isCorrect).length
+            correctCount: this.getEffectiveCorrectCount(level.lastAttempts)
         });
     }
     
+    /**
+     * Calculate effective correct count, counting timeouts as partial successes
+     */
+    private getEffectiveCorrectCount(attempts: IQuestionAttempt[]): number {
+        return attempts.reduce((count, attempt) => {
+            if (attempt.isTimeout) {
+                return count + AdaptiveDifficulty.TIMEOUT_WEIGHT;
+            }
+            return count + (attempt.isCorrect ? 1 : 0);
+        }, 0);
+    }
+
+    /**
+     * Calculate effective incorrect count, counting timeouts as partial failures
+     */
+    private getEffectiveIncorrectCount(attempts: IQuestionAttempt[]): number {
+        return attempts.reduce((count, attempt) => {
+            if (attempt.isTimeout) {
+                return count + AdaptiveDifficulty.TIMEOUT_WEIGHT;
+            }
+            return count + (attempt.isCorrect ? 0 : 1);
+        }, 0);
+    }
+
     /**
      * Get current difficulty for a question type
      */
@@ -90,27 +117,28 @@ export class AdaptiveDifficulty {
 
     private evaluateDifficulty(type: EnumQuestionType): void {
         const level = this.difficultyLevels[type];
-        const correctCount = level.lastAttempts.filter(a => a.isCorrect).length;
-        const incorrectCount = level.lastAttempts.length - correctCount;
+        const effectiveCorrectCount = this.getEffectiveCorrectCount(level.lastAttempts);
+        const effectiveIncorrectCount = this.getEffectiveIncorrectCount(level.lastAttempts);
         
         // Check for consecutive correct answers for immediate level up
         const lastNine = level.lastAttempts.slice(-9);
-        const nineConsecutiveCorrect = lastNine.length === 9 && lastNine.every(a => a.isCorrect);
+        const nineConsecutiveCorrect = lastNine.length === 9 && 
+            lastNine.every(a => a.isCorrect && !a.isTimeout);
 
-        // Level up conditions: either 9 consecutive correct or 9 out of 10 total correct
+        // Level up conditions: either 9 consecutive correct or 9 effective correct out of 10
         if (nineConsecutiveCorrect || 
             (level.lastAttempts.length >= AdaptiveDifficulty.HISTORY_SIZE && 
-             correctCount >= AdaptiveDifficulty.REQUIRED_CORRECT_FOR_LEVEL_UP)) {
+             effectiveCorrectCount >= AdaptiveDifficulty.REQUIRED_CORRECT_FOR_LEVEL_UP)) {
             if (level.currentDifficulty < AdaptiveDifficulty.MAX_DIFFICULTY) {
-                console.log(`Leveling UP ${type} from ${level.currentDifficulty} to ${level.currentDifficulty + 1} - ${nineConsecutiveCorrect ? 'got 9 consecutive correct!' : `got ${correctCount} correct out of ${level.lastAttempts.length}`}`);
+                console.log(`Leveling UP ${type} from ${level.currentDifficulty} to ${level.currentDifficulty + 1} - ${nineConsecutiveCorrect ? 'got 9 consecutive correct!' : `got ${effectiveCorrectCount} effective correct out of ${level.lastAttempts.length}`}`);
                 level.currentDifficulty++;
                 level.lastAttempts = []; // Reset history after difficulty change
             }
         }
-        // Level down if too many incorrect answers
-        else if (incorrectCount >= AdaptiveDifficulty.MAX_INCORRECT_BEFORE_LEVEL_DOWN) {
+        // Level down if too many effective incorrect answers
+        else if (effectiveIncorrectCount >= AdaptiveDifficulty.MAX_INCORRECT_BEFORE_LEVEL_DOWN) {
             if (level.currentDifficulty > AdaptiveDifficulty.MIN_DIFFICULTY) {
-                console.log(`Leveling DOWN ${type} from ${level.currentDifficulty} to ${level.currentDifficulty - 1} - got ${incorrectCount} incorrect answers`);
+                console.log(`Leveling DOWN ${type} from ${level.currentDifficulty} to ${level.currentDifficulty - 1} - got ${effectiveIncorrectCount} effective incorrect answers`);
                 level.currentDifficulty--;
                 level.lastAttempts = []; // Reset history after difficulty change
             }

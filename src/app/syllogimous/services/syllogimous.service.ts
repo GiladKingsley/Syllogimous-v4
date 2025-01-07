@@ -235,21 +235,24 @@ createRandomQuestion(numOfPremises?: number, basic?: boolean) {
         this.router.navigate([EnumScreens.Game]);
     }
 
-    checkQuestion(value?: boolean) {
-        this.question.userAnswer = value;
-        this.question.answeredAt = Date.now();
-        this.question.timerTypeOnAnswer = localStorage.getItem(LS_TIMER) || "0";
-        this.question.playgroundMode = this.settings === this.playgroundSettings;
-    
-        // Update adaptive difficulty and points if not in playground mode
-        if (!this.question.playgroundMode && value !== undefined) {
-            const isCorrect = this.question.userAnswer === this.question.isValid;
-            
-            // Update adaptive difficulty
-            this.adaptiveDifficulty.recordAttempt(this.question.type, isCorrect);
-            this.saveAdaptiveDifficulty();
-    
-            // Update points (keeping the existing point system for unlocks)
+// Update the checkQuestion method to handle timeouts
+checkQuestion(value?: boolean) {
+    this.question.userAnswer = value;
+    this.question.answeredAt = Date.now();
+    this.question.timerTypeOnAnswer = localStorage.getItem(LS_TIMER) || "0";
+    this.question.playgroundMode = this.settings === this.playgroundSettings;
+
+    // Update adaptive difficulty and points if not in playground mode
+    if (!this.question.playgroundMode) {
+        const isTimeout = value === undefined;
+        const isCorrect = !isTimeout && this.question.userAnswer === this.question.isValid;
+        
+        // Update adaptive difficulty
+        this.adaptiveDifficulty.recordAttempt(this.question.type, isCorrect, isTimeout);
+        this.saveAdaptiveDifficulty();
+
+        // Update points (keeping the existing point system for unlocks)
+        if (!isTimeout) {
             if (isCorrect) {
                 this.score += TIER_SCORE_ADJUSTMENTS[this.tier].increment;
             } else {
@@ -257,16 +260,17 @@ createRandomQuestion(numOfPremises?: number, basic?: boolean) {
             }
             this.question.userScore = this.score;
         }
-    
-        this.pushIntoHistory(this.question);
-        
-        this.dailyProgressService.setDailyProgressLS(
-            this.dailyProgressService.getToday(),
-            this.question.answeredAt - this.question.createdAt
-        );
-    
-        this.router.navigate([EnumScreens.Feedback]);
     }
+
+    this.pushIntoHistory(this.question);
+    
+    this.dailyProgressService.setDailyProgressLS(
+        this.dailyProgressService.getToday(),
+        this.question.answeredAt - this.question.createdAt
+    );
+
+    this.router.navigate([EnumScreens.Feedback]);
+}
 
     createSyllogism(numOfPremises: number) {
         console.log("createSyllogism");

@@ -21,10 +21,11 @@ import { AdaptiveDifficulty } from '../models/adaptive-difficulty.models';
 export class SyllogimousService {
     _score = 0;
     history: Question[] = [];
-    question = this.createSyllogism(2);
+    question!: Question;  // Just declare it here with definite assignment assertion
     playgroundSettings?: Settings;
     private adaptiveDifficulty: AdaptiveDifficulty = new AdaptiveDifficulty();
     private readonly LS_ADAPTIVE_DIFFICULTY = "SYL_ADAPTIVE_DIFFICULTY";
+
 
     get score() {
         return this._score;
@@ -47,7 +48,34 @@ export class SyllogimousService {
 
     get settings() {
         // Playground settings override normal settings
-        return this.playgroundSettings || getSettingsFromTier(this.tier);
+        if (this.playgroundSettings) {
+            return this.playgroundSettings;
+        }
+        
+        // Get the tier-based settings for unlocking features
+        const tierSettings = getSettingsFromTier(this.tier);
+        
+        // Create a new settings object that only preserves the 'enabled' state from tier
+        // but uses adaptive difficulty for premise counts
+        const settings = new Settings();
+        
+        // Copy over all enabled flags
+        settings.enabled = tierSettings.enabled;
+        
+        // For each question type, preserve its enabled state from tier
+        // but use adaptive difficulty for the number of premises
+        Object.entries(tierSettings.question).forEach(([qt, qs]) => {
+            const questionType = qt as EnumQuestionType;
+            settings.question[questionType].enabled = qs.enabled;
+            
+            // Only set numOfPremises if not being overridden
+            if (!this.playgroundSettings) {
+                const difficulty = this.adaptiveDifficulty.getDifficulty(questionType);
+                settings.question[questionType].setNumOfPremises(difficulty);
+            }
+        });
+    
+        return settings;
     }
 
     get questionsFromLS() {
@@ -67,9 +95,11 @@ export class SyllogimousService {
         this.loadScore();
         this.loadHistory();
         this.loadAdaptiveDifficulty();
+        this.question = this.createSyllogism(2);  // Create question after initialization
         (window as any).syllogimous = this;
     }
-    
+
+
     private loadAdaptiveDifficulty() {
         this.adaptiveDifficulty = new AdaptiveDifficulty();
         const savedData = localStorage.getItem(this.LS_ADAPTIVE_DIFFICULTY);
@@ -211,15 +241,25 @@ createRandomQuestion(numOfPremises?: number, basic?: boolean) {
         this.question.timerTypeOnAnswer = localStorage.getItem(LS_TIMER) || "0";
         this.question.playgroundMode = this.settings === this.playgroundSettings;
     
-        // Update adaptive difficulty if not in playground mode
+        // Update adaptive difficulty and points if not in playground mode
         if (!this.question.playgroundMode && value !== undefined) {
             const isCorrect = this.question.userAnswer === this.question.isValid;
+            
+            // Update adaptive difficulty
             this.adaptiveDifficulty.recordAttempt(this.question.type, isCorrect);
             this.saveAdaptiveDifficulty();
+    
+            // Update points (keeping the existing point system for unlocks)
+            if (isCorrect) {
+                this.score += TIER_SCORE_ADJUSTMENTS[this.tier].increment;
+            } else {
+                this.score = Math.max(0, this.score - TIER_SCORE_ADJUSTMENTS[this.tier].decrement);
+            }
+            this.question.userScore = this.score;
         }
     
         this.pushIntoHistory(this.question);
-    
+        
         this.dailyProgressService.setDailyProgressLS(
             this.dailyProgressService.getToday(),
             this.question.answeredAt - this.question.createdAt

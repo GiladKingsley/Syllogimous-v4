@@ -12,6 +12,8 @@ import { DailyProgressService } from "./daily-progress.service";
 import { guid } from "src/app/utils/uuid";
 import { EnumArrangements, EnumQuestionType } from "../constants/question.constants";
 import { EnumQuestionGroup } from "../constants/settings.constants";
+import { AdaptiveDifficulty } from '../models/adaptive-difficulty.models';
+
 
 @Injectable({
     providedIn: "root"
@@ -21,6 +23,8 @@ export class SyllogimousService {
     history: Question[] = [];
     question = this.createSyllogism(2);
     playgroundSettings?: Settings;
+    private adaptiveDifficulty: AdaptiveDifficulty = new AdaptiveDifficulty();
+    private readonly LS_ADAPTIVE_DIFFICULTY = "SYL_ADAPTIVE_DIFFICULTY";
 
     get score() {
         return this._score;
@@ -62,7 +66,23 @@ export class SyllogimousService {
     ) {
         this.loadScore();
         this.loadHistory();
+        this.loadAdaptiveDifficulty();
         (window as any).syllogimous = this;
+    }
+    
+    private loadAdaptiveDifficulty() {
+        this.adaptiveDifficulty = new AdaptiveDifficulty();
+        const savedData = localStorage.getItem(this.LS_ADAPTIVE_DIFFICULTY);
+        if (savedData) {
+            this.adaptiveDifficulty.restoreDifficultyData(JSON.parse(savedData));
+        }
+    }
+    
+    private saveAdaptiveDifficulty() {
+        localStorage.setItem(
+            this.LS_ADAPTIVE_DIFFICULTY,
+            JSON.stringify(this.adaptiveDifficulty.getDifficultyData())
+        );
     }
 
     loadScore() {
@@ -103,45 +123,55 @@ export class SyllogimousService {
     }
 
     /** Return a random question based on the current settings */
-    createRandomQuestion(numOfPremises?: number, basic?: boolean) {
-        const settings = this.settings;
-        console.log("Settings", settings);
+/** Return a random question based on the current settings */
+createRandomQuestion(numOfPremises?: number, basic?: boolean) {
+    const settings = this.settings;
+    console.log("Settings", settings);
 
-        const typeSettingTuples =  Object.entries(settings.question) as [EnumQuestionType, QuestionSettings][];
-        const getQuestionGroup = (qg?: EnumQuestionGroup) => typeSettingTuples.filter(([qt, qs]) => qs.group == qg);
-        const groupsOfQuestions = [
-            getQuestionGroup(undefined),
-            getQuestionGroup(EnumQuestionGroup.Comparison),
-            getQuestionGroup(EnumQuestionGroup.Direction),
-            getQuestionGroup(EnumQuestionGroup.Arrangement),
-        ];
+    const typeSettingTuples = Object.entries(settings.question) as [EnumQuestionType, QuestionSettings][];
+    const getQuestionGroup = (qg?: EnumQuestionGroup) => typeSettingTuples.filter(([qt, qs]) => qs.group == qg);
+    const groupsOfQuestions = [
+        getQuestionGroup(undefined),
+        getQuestionGroup(EnumQuestionGroup.Comparison),
+        getQuestionGroup(EnumQuestionGroup.Direction),
+        getQuestionGroup(EnumQuestionGroup.Arrangement),
+    ];
 
-        const choices: Array<() => Question> = [];
+    const choices: Array<() => Question> = [];
 
-        // Pick one question from each group so that the distribution is uniform
-        // The "isUndefinedGroup" predicate is used to push all ungrouped question into choices
-        for (const grouped of groupsOfQuestions) {
-            const isUndefinedGroup = grouped === groupsOfQuestions[0];
-            const groupChoices: Array<() => Question> = isUndefinedGroup ? choices : [];
-            for (const [qt, qs] of grouped) {
-                const shouldIncludeQuestion = (basic == undefined) ? true : qs.basic === basic;
-                if (qs.enabled && shouldIncludeQuestion) {
-                    groupChoices.push(this.getCreateFn(qt, qs.clampNumOfPremises(numOfPremises || qs.getNumOfPremises())));
-                }
-            }
-            if (!isUndefinedGroup && groupChoices.length) {
-                choices.push(pickUniqueItems(groupChoices, 1).picked[0]);
+    // Pick one question from each group so that the distribution is uniform
+    for (const grouped of groupsOfQuestions) {
+        const isUndefinedGroup = grouped === groupsOfQuestions[0];
+        const groupChoices: Array<() => Question> = isUndefinedGroup ? choices : [];
+        for (const [qt, qs] of grouped) {
+            const shouldIncludeQuestion = (basic == undefined) ? true : qs.basic === basic;
+            if (qs.enabled && shouldIncludeQuestion) {
+                const adaptiveDifficulty = this.adaptiveDifficulty.getDifficulty(qt);
+                console.log('Question type:', qt, 'Adaptive difficulty:', adaptiveDifficulty);
+                // Use adaptive difficulty if no specific number of premises is requested
+                const difficulty = numOfPremises || adaptiveDifficulty;
+                console.log('Final difficulty used:', difficulty, 'numOfPremises was:', numOfPremises);
+                // Ensure difficulty is within min/max bounds for this question type
+                const clampedDifficulty = Math.max(
+                    qs.minNumOfPremises,
+                    Math.min(qs.maxNumOfPremises, difficulty)
+                );
+                groupChoices.push(this.getCreateFn(qt, clampedDifficulty));
             }
         }
-
-        if (!choices.length) {
-            console.warn("NO CHOICES AVAILABLE!");
+        if (!isUndefinedGroup && groupChoices.length) {
+            choices.push(pickUniqueItems(groupChoices, 1).picked[0]);
         }
-    
-        const randomQuestion = pickUniqueItems(choices, 1).picked[0]();
-        console.log("Random question", randomQuestion);
-        return randomQuestion;
     }
+
+    if (!choices.length) {
+        console.warn("NO CHOICES AVAILABLE!");
+    }
+
+    const randomQuestion = pickUniqueItems(choices, 1).picked[0]();
+    console.log("Random question", randomQuestion);
+    return randomQuestion;
+}
 
     skipIntro(dontShowAnymore: boolean) {
         if (dontShowAnymore) {
@@ -181,39 +211,11 @@ export class SyllogimousService {
         this.question.timerTypeOnAnswer = localStorage.getItem(LS_TIMER) || "0";
         this.question.playgroundMode = this.settings === this.playgroundSettings;
     
-        // Playground doesn't progress points
-        if (!this.question.playgroundMode) {
-            const currTier = this.tier;
-        
-            let ds = 0;
-            // Only change score if there was an actual answer (not a timeout)
-            if (value !== undefined) {
-                if (this.question.userAnswer === this.question.isValid) {
-                    this.score += TIER_SCORE_ADJUSTMENTS[this.tier].increment;
-                    ds += 1;
-                } else {
-                    this.score = Math.max(0, this.score - TIER_SCORE_ADJUSTMENTS[this.tier].decrement);
-                    if (this.score !== 0) {
-                        ds -= 1;
-                    }
-                }
-            }
-        
-            this.question.userScore = this.score;
-        
-            const nextTier = this.tier;
-        
-            // Level up/down
-            if (currTier !== nextTier) {
-                const modalRef = this.modalService.open(ModalLevelChangeComponent, { centered: true });
-                if (ds > 0) { // level up
-                    modalRef.componentInstance.title = "Congratulations\nYou've Leveled Up!";
-                    modalRef.componentInstance.content = "Your hard work is paying off.\nKeep going to unlock more features and rewards!";
-                } else if (ds < 0) { // level down
-                    modalRef.componentInstance.title = "Level Down\nLet's Regroup!";
-                    modalRef.componentInstance.content = "Take this as a learning step.\nRefocus your efforts and you'll be back on top in no time!";
-                }
-            }
+        // Update adaptive difficulty if not in playground mode
+        if (!this.question.playgroundMode && value !== undefined) {
+            const isCorrect = this.question.userAnswer === this.question.isValid;
+            this.adaptiveDifficulty.recordAttempt(this.question.type, isCorrect);
+            this.saveAdaptiveDifficulty();
         }
     
         this.pushIntoHistory(this.question);
